@@ -1,13 +1,13 @@
 package com.example.demo.controller;
 
 import java.net.URI;
-import java.util.List;
 import java.math.BigDecimal;
-import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -28,6 +28,7 @@ import com.example.demo.service.ProductService;
 import com.example.demo.entity.Product;
 import com.example.demo.dto.product.ProductResponse;
 import com.example.demo.dto.product.ProductRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
  * REST controller exposing CRUD endpoints for Products.
@@ -48,17 +49,19 @@ public class ProductController {
     private final com.example.demo.service.CategoryService categoryService;
 
     @GetMapping
-    public List<ProductResponse> getAll() {
-        List<Product> products = productService.findAll();
-        return products.stream().map(productService::toResponse).collect(Collectors.toList());
+    public Page<ProductResponse> getAll(
+            @RequestParam(value = "search", required = false) String search,
+            @RequestParam(value = "category", required = false) Long categoryId,
+            Pageable pageable) {
+        return productService.search(search, categoryId, null, null, pageable);
     }
 
     /**
      * Search products with pagination and optional filters.
      *
      * Query parameters:
-     * - name: search by product name (contains, case-insensitive)
-     * - category: search by category name (contains, case-insensitive)
+     * - search: search by product name (contains, case-insensitive)
+     * - category: category id to filter by
      * - minPrice, maxPrice: price range filter
      *
      * Accepts a Spring Data `Pageable` to control page/size/sort.
@@ -67,11 +70,11 @@ public class ProductController {
     @GetMapping("/search")
     public Page<ProductResponse> search(
             @RequestParam(required = false) String name,
-            @RequestParam(value = "category", required = false) String categoryName,
+            @RequestParam(value = "category", required = false) Long categoryId,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             Pageable pageable) {
-        return productService.search(name, categoryName, minPrice, maxPrice, pageable);
+        return productService.search(name, categoryId, minPrice, maxPrice, pageable);
     }
 
     @GetMapping("/{id}")
@@ -81,6 +84,7 @@ public class ProductController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ProductResponse> create(@Valid @RequestBody ProductRequest request) {
         // map request -> entity (minimal mapping; service handles persistence)
         Product product = Product.builder()
@@ -99,6 +103,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ProductResponse update(@PathVariable Long id, @Valid @RequestBody ProductRequest request) {
         Product product = Product.builder()
                 .name(request.getName())
@@ -114,8 +119,17 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         productService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ProductResponse> uploadImage(@PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        ProductResponse resp = productService.uploadImage(id, file);
+        return ResponseEntity.ok(resp);
     }
 }

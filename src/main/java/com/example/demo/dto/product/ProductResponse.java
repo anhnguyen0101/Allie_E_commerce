@@ -34,4 +34,7 @@ public class ProductResponse {
     // name of the category this product belongs to
     private String categoryName;
 
+    // URL of the product image (if uploaded)
+    private String imageUrl;
+
 }

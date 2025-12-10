@@ -1,0 +1,83 @@
+<div class="min-h-screen bg-gray-50">
+  <!-- Header Section -->
+  <div class="bg-white shadow-sm py-8">
+    <div class="max-w-7xl mx-auto px-4">
+      <h1 class="text-4xl font-bold text-gray-900 flex items-center gap-3">
+        <svg class="w-10 h-10 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/>
+        </svg>
+        Your Wishlist
+      </h1>
+      <p class="text-gray-600 mt-2">{{ wishlistItems.length }} {{ wishlistItems.length === 1 ? 'item' : 'items' }} saved</p>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="wishlistItems.length === 0" class="max-w-7xl mx-auto px-4 py-20">
+    <div class="text-center">
+      <!-- Empty Wishlist Illustration -->
+      <div class="mb-8 flex justify-center">
+        <svg class="w-64 h-64 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+        </svg>
+      </div>
+      
+      <h2 class="text-3xl font-bold text-gray-900 mb-4">Your Wishlist is Empty</h2>
+      <p class="text-gray-600 text-lg mb-8 max-w-md mx-auto">
+        Start adding items you love to your wishlist! Browse our collection and save your favorites.
+      </p>
+      
+      <a routerLink="/products" class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-lg font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+        </svg>
+        Start Shopping
+      </a>
+    </div>
+  </div>
+
+  <!-- Wishlist Items Grid -->
+  <div *ngIf="wishlistItems.length > 0" class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Action Bar -->
+    <div class="mb-6 flex items-center justify-between">
+      <button 
+        (click)="clearAllWishlist()"
+        class="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+        </svg>
+        Clear All
+      </button>
+
+      <button 
+        (click)="addAllToCart()"
+        class="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        Add All to Cart
+      </button>
+    </div>
+
+    <!-- Product Cards Grid with Remove Button -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+      <div *ngFor="let item of wishlistItems; trackBy: trackByProductId" class="relative">
+        <!-- Remove Button (Top Left) -->
+        <button 
+          (click)="removeFromWishlist(item.productId)"
+          class="absolute top-4 left-4 z-10 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-all duration-300 hover:scale-110"
+          title="Remove from wishlist">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+
+        <!-- Product Card -->
+        <app-product-card 
+          [product]="item"
+          class="transition-all duration-300">
+        </app-product-card>
+      </div>
+    </div>
+  </div>
+</div>

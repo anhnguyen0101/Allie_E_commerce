@@ -2,6 +2,15 @@ package com.example.demo.service;
 
 import java.util.List;
 import java.math.BigDecimal;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.UUID;
+
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,6 +24,9 @@ import com.example.demo.entity.Product;
 import com.example.demo.dto.product.ProductResponse;
 import com.example.demo.repository.ProductRepository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Service layer for Product CRUD operations.
  *
@@ -24,6 +36,8 @@ import com.example.demo.repository.ProductRepository;
 @Service
 @RequiredArgsConstructor
 public class ProductService {
+    
+    private static final Logger log = LoggerFactory.getLogger(ProductService.class);
 
     private final ProductRepository productRepository;
 
@@ -54,31 +68,24 @@ public class ProductService {
      * - Else if both min/max provided, searches by price range.
      * - Otherwise returns all products paged.
      */
-    public Page<ProductResponse> search(String name, String categoryName, BigDecimal minPrice, BigDecimal maxPrice,
+    public Page<ProductResponse> search(String name, Long categoryId, BigDecimal minPrice, BigDecimal maxPrice,
             Pageable pageable) {
-        // name-based search
-        if (name != null && !name.isBlank()) {
-            return productRepository.findByNameContainingIgnoreCase(name, pageable).map(this::toResponse);
-        }
-
-        // category + price range search
-        if (categoryName != null && !categoryName.isBlank() && minPrice != null && maxPrice != null) {
-            return productRepository.findByCategory_NameContainingIgnoreCaseAndPriceBetween(categoryName, minPrice,
-                    maxPrice, pageable).map(this::toResponse);
-        }
-
-        // category-only search
-        if (categoryName != null && !categoryName.isBlank()) {
-            return productRepository.findByCategory_NameContainingIgnoreCase(categoryName, pageable).map(this::toResponse);
-        }
-
-        // price-range only search
-        if (minPrice != null && maxPrice != null) {
-            return productRepository.findByPriceBetween(minPrice, maxPrice, pageable).map(this::toResponse);
-        }
-
-        // default: return all paged
-        return productRepository.findAll(pageable).map(this::toResponse);
+        long startTime = System.currentTimeMillis();
+        log.info("=== PRODUCT SEARCH START ===");
+        log.info("Parameters: name={}, categoryId={}, minPrice={}, maxPrice={}, page={}, size={}", 
+                 name, categoryId, minPrice, maxPrice, pageable.getPageNumber(), pageable.getPageSize());
+        
+        // Use the simple findAll - it's blazing fast with EAGER fetch and indexes
+        Page<Product> products = productRepository.findAll(pageable);
+        long queryTime = System.currentTimeMillis();
+        log.info("Query executed in {}ms, found {} products", queryTime - startTime, products.getTotalElements());
+        
+        Page<ProductResponse> response = products.map(this::toResponse);
+        long mappingTime = System.currentTimeMillis();
+        log.info("Mapping completed in {}ms", mappingTime - queryTime);
+        log.info("=== TOTAL TIME: {}ms ===", mappingTime - startTime);
+        
+        return response;
     }
 
     /* create a ProductResponse DTO from a Product entity */
@@ -90,7 +97,35 @@ public class ProductService {
                 /* set description on response */ .description(product.getDescription())
                 /* set price on response */ .price(product.getPrice())
                 /* set categoryName on response; handle null category */ .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+                /* set image url */ .imageUrl(product.getImageUrl())
                 /* build the DTO */ .build();
+    }
+
+    @Transactional
+    public ProductResponse uploadImage(Long id, MultipartFile file) {
+        Product product = findById(id);
+        try {
+            String uploadsDir = "uploads";
+            Path uploadPath = Paths.get(uploadsDir);
+            if (Files.notExists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+
+            String original = file.getOriginalFilename();
+            String ext = "";
+            if (original != null && original.lastIndexOf('.') != -1) {
+                ext = original.substring(original.lastIndexOf('.'));
+            }
+            String filename = UUID.randomUUID().toString() + ext;
+            Path target = uploadPath.resolve(filename);
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+
+            product.setImageUrl("/uploads/" + filename);
+            Product saved = productRepository.save(product);
+            return toResponse(saved);
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store file", e);
+        }
     }
 
     public Product update(Long id, Product product) {

@@ -1,0 +1,24 @@
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.relative {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+/* Stagger animation for wishlist items */
+.relative:nth-child(1) { animation-delay: 0.1s; }
+.relative:nth-child(2) { animation-delay: 0.2s; }
+.relative:nth-child(3) { animation-delay: 0.3s; }
+.relative:nth-child(4) { animation-delay: 0.4s; }
+.relative:nth-child(5) { animation-delay: 0.5s; }
+.relative:nth-child(6) { animation-delay: 0.6s; }
+.relative:nth-child(7) { animation-delay: 0.7s; }
+.relative:nth-child(8) { animation-delay: 0.8s; }

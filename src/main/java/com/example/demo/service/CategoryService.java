@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 
 import com.example.demo.entity.Category;
 import com.example.demo.repository.CategoryRepository;
+import com.example.demo.dto.category.CategoryResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -41,6 +42,14 @@ public class CategoryService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found");
         }
         categoryRepository.deleteById(id);
+    }
+
+    /* Map Category entity to CategoryResponse DTO */
+    public CategoryResponse toResponse(Category category) {
+        return CategoryResponse.builder()
+                .id(category.getId())
+                .name(category.getName())
+                .build();
     }
 
 }

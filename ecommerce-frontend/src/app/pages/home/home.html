@@ -1,0 +1,106 @@
+<div class="min-h-screen bg-gray-50">
+  <!-- Hero Section -->
+  <div class="bg-white py-20">
+    <div class="max-w-7xl mx-auto px-4 text-center">
+      <h1 class="text-5xl font-bold text-gray-900 mb-4">Discover Your Next Favorite</h1>
+      <p class="text-xl text-gray-600 mb-8">Shop the latest trends, new arrivals, and best sellers in one place.</p>
+      <a routerLink="/products" class="inline-block px-8 py-4 bg-blue-600 text-white text-lg font-semibold rounded-lg hover:bg-blue-700 transition">
+        Shop Now
+      </a>
+    </div>
+  </div>
+
+  <!-- Categories Section - UPGRADED -->
+  <div class="max-w-7xl mx-auto px-4 py-16">
+    <h2 class="text-4xl font-bold text-center mb-12">Shop by Category</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <!-- Trending -->
+      <a routerLink="/products" [queryParams]="{trending: true}" 
+         class="group relative bg-gradient-to-br from-red-50 to-orange-50 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden transform hover:-translate-y-2">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-3xl"></div>
+        <div class="relative p-10 text-center">
+          <div class="text-7xl mb-6 transform group-hover:scale-110 transition-transform duration-300">🔥</div>
+          <h3 class="text-3xl font-bold mb-3 text-gray-900">Trending</h3>
+          <p class="text-gray-600 mb-6">See what's hot and popular right now.</p>
+          <span class="inline-flex items-center gap-2 text-red-600 font-semibold group-hover:gap-3 transition-all">
+            Shop Now 
+            <svg class="w-5 h-5 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+            </svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- New Arrivals -->
+      <a routerLink="/products" [queryParams]="{new: true}" 
+         class="group relative bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden transform hover:-translate-y-2">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl"></div>
+        <div class="relative p-10 text-center">
+          <div class="text-7xl mb-6 transform group-hover:scale-110 transition-transform duration-300">🆕</div>
+          <h3 class="text-3xl font-bold mb-3 text-gray-900">New Arrivals</h3>
+          <p class="text-gray-600 mb-6">Fresh styles just landed in our store.</p>
+          <span class="inline-flex items-center gap-2 text-blue-600 font-semibold group-hover:gap-3 transition-all">
+            Discover New 
+            <svg class="w-5 h-5 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+            </svg>
+          </span>
+        </div>
+      </a>
+
+      <!-- Best Sellers -->
+      <a routerLink="/products" [queryParams]="{bestseller: true}" 
+         class="group relative bg-gradient-to-br from-yellow-50 to-amber-50 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden transform hover:-translate-y-2">
+        <div class="absolute top-0 right-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-3xl"></div>
+        <div class="relative p-10 text-center">
+          <div class="text-7xl mb-6 transform group-hover:scale-110 transition-transform duration-300">🏆</div>
+          <h3 class="text-3xl font-bold mb-3 text-gray-900">Best Sellers</h3>
+          <p class="text-gray-600 mb-6">Shop our most-loved products.</p>
+          <span class="inline-flex items-center gap-2 text-amber-600 font-semibold group-hover:gap-3 transition-all">
+            View Top Picks 
+            <svg class="w-5 h-5 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+            </svg>
+          </span>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Featured Products Section -->
+  <div class="max-w-7xl mx-auto px-4 py-16">
+    <h2 class="text-4xl font-bold text-center mb-12">Featured Products</h2>
+    
+    <div *ngIf="loading" class="text-center py-12">
+      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <p class="mt-4 text-gray-600">Loading products...</p>
+    </div>
+
+    <div *ngIf="error" class="text-center py-12">
+      <p class="text-red-600 text-lg">{{ error }}</p>
+      <button (click)="loadFeaturedProducts()" class="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+        Retry
+      </button>
+    </div>
+
+    <div *ngIf="!loading && featuredProducts.length === 0" class="text-center py-12">
+      <p class="text-gray-600">No products available at the moment.</p>
+    </div>
+
+    <!-- Enhanced Responsive Product Grid -->
+    <div *ngIf="!loading && !error && featuredProducts.length > 0" 
+         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+      <app-product-card 
+        *ngFor="let product of featuredProducts; trackBy: trackByProductId" 
+        [product]="product"
+        class="animate-fadeInUp">
+      </app-product-card>
+    </div>
+
+    <div *ngIf="!loading && featuredProducts.length > 0" class="text-center mt-12">
+      <a routerLink="/products" class="inline-block px-8 py-3 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition">
+        View All Products
+      </a>
+    </div>
+  </div>
+</div>

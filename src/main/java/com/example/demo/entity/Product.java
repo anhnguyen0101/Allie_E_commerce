@@ -47,8 +47,11 @@ public class Product {
     @Column(length = 2000)
     private String description;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "category_id")
     private Category category;
+
+    /** URL/path to the product image (served from /uploads/**) */
+    private String imageUrl;
 
 }

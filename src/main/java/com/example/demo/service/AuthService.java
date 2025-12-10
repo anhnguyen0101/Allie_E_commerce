@@ -11,7 +11,11 @@ import com.example.demo.repository.UserRepository;
 import com.example.demo.dto.auth.RegisterRequest;
 import com.example.demo.dto.auth.LoginRequest;
 import com.example.demo.dto.auth.TokenResponse;
-import com.example.demo.security.JwtService;
+import com.example.demo.security.JwtUtils;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +33,7 @@ import com.example.demo.security.JwtService;
 public class AuthService {
 
     private final UserRepository userRepository;
-    private final JwtService jwtService;
+    private final JwtUtils jwtUtils;
 
     // local encoder instance; can be exposed as a @Bean if you prefer
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -44,12 +48,16 @@ public class AuthService {
                 .name(request.getName())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .role(request.getRole())
+                .role(User.Role.USER)
                 .build();
 
         User saved = userRepository.save(user);
-        String token = jwtService.generateToken(saved);
-        return TokenResponse.builder().token(token).build();
+        String token = jwtUtils.generateToken(toUserDetails(saved));
+        return TokenResponse.builder()
+            .token(token)
+            .email(saved.getEmail())
+            .name(saved.getName())
+            .build();
     }
 
     public TokenResponse login(LoginRequest request) {
@@ -60,8 +68,21 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid email or password");
         }
 
-        String token = jwtService.generateToken(user);
-        return TokenResponse.builder().token(token).build();
+        String token = jwtUtils.generateToken(toUserDetails(user));
+        return TokenResponse.builder()
+            .token(token)
+            .email(user.getEmail())
+            .name(user.getName())
+            .build();
+    }
+
+    /**
+     * Convert application User entity to Spring Security UserDetails including authorities.
+     */
+    public UserDetails toUserDetails(User user) {
+        String roleName = "ROLE_" + user.getRole().name();
+        GrantedAuthority auth = new SimpleGrantedAuthority(roleName);
+        return new org.springframework.security.core.userdetails.User(user.getEmail(), user.getPassword(), List.of(auth));
     }
 
 }

@@ -8,6 +8,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.springframework.stereotype.Component;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 @Component
 /**
@@ -36,8 +37,13 @@ public class JwtUtils {
             String header = base64UrlEncode("{\"alg\":\"HS256\",\"typ\":\"JWT\"}");
             long now = System.currentTimeMillis() / 1000L;
             long exp = now + expirationSeconds;
+            // include the role of the user (first authority) if present
+            String roleClaim = "";
+            if (user.getAuthorities() != null && !user.getAuthorities().isEmpty()) {
+                roleClaim = user.getAuthorities().iterator().next().getAuthority();
+            }
             String payloadJson = String.format("{\"sub\":\"%s\",\"role\":\"%s\",\"iat\":%d,\"exp\":%d}",
-                    escape(user.getUsername()), "", now, exp);
+                    escape(user.getUsername()), escape(roleClaim), now, exp);
             String payload = base64UrlEncode(payloadJson);
             String unsignedToken = header + "." + payload;
             String signature = hmacSha256(unsignedToken, secret);
@@ -60,7 +66,7 @@ public class JwtUtils {
 
     public boolean validateToken(String token, UserDetails user) {
         try {
-            String[] parts = token.split("\\.");
+            String[] parts = token.split(".");
             if (parts.length != 3) return false;
 
             String unsigned = parts[0] + "." + parts[1];
