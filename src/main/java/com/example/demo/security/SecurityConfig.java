@@ -49,6 +49,8 @@ public class SecurityConfig {
         http
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Allow OPTIONS requests (CORS preflight)
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // public auth endpoints
                 .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
                 // public GET product/category browsing (order matters!)
@@ -56,6 +58,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/categories", "/api/categories/**").permitAll()
                 // /api/auth/me requires authentication
                 .requestMatchers("/api/auth/me").authenticated()
+                // cart endpoints require authentication (user can access their own cart)
+                .requestMatchers("/api/cart", "/api/cart/**").authenticated()
+                // orders endpoints require authentication
+                .requestMatchers("/api/orders", "/api/orders/**").authenticated()
+                // wishlist endpoints require authentication
+                .requestMatchers("/api/wishlist", "/api/wishlist/**").authenticated()
                 // admin-only endpoints for create/update/delete
                 .requestMatchers(HttpMethod.POST, "/api/products/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")

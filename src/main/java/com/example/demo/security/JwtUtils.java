@@ -1,15 +1,20 @@
 package com.example.demo.security;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-
-import org.springframework.stereotype.Component;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.stereotype.Component;
 
+import javax.crypto.SecretKey;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+
+@Slf4j
 @Component
 /**
  * Utility component for handling JWT operations used by Spring Security.
@@ -28,117 +33,104 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
  */
 public class JwtUtils {
 
-    // TODO: move to configuration and use a secure secret in production
-    private final String secret = "change-me-to-a-secure-secret";
-    private final long expirationSeconds = 3600; // 1 hour
+    @Value("${jwt.secret:myVerySecureSecretKeyThatIsAtLeast256BitsLongForHS256Algorithm12345678}")
+    private String secret;
 
-    public String generateToken(UserDetails user) {
-        try {
-            String header = base64UrlEncode("{\"alg\":\"HS256\",\"typ\":\"JWT\"}");
-            long now = System.currentTimeMillis() / 1000L;
-            long exp = now + expirationSeconds;
-            // include the role of the user (first authority) if present
-            String roleClaim = "";
-            if (user.getAuthorities() != null && !user.getAuthorities().isEmpty()) {
-                roleClaim = user.getAuthorities().iterator().next().getAuthority();
-            }
-            String payloadJson = String.format("{\"sub\":\"%s\",\"role\":\"%s\",\"iat\":%d,\"exp\":%d}",
-                    escape(user.getUsername()), escape(roleClaim), now, exp);
-            String payload = base64UrlEncode(payloadJson);
-            String unsignedToken = header + "." + payload;
-            String signature = hmacSha256(unsignedToken, secret);
-            return unsignedToken + "." + signature;
-        } catch (Exception e) {
-            throw new RuntimeException("Unable to generate JWT", e);
-        }
+    @Value("${jwt.expiration:86400000}") // 24 hours in milliseconds
+    private Long expiration;
+
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
     public String extractUsername(String token) {
-        try {
-            String[] parts = token.split("\\.");
-            if (parts.length != 3) return null;
-            String payloadJson = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
-            return extractStringClaim(payloadJson, "sub");
-        } catch (Exception e) {
-            return null;
-        }
+        return extractClaim(token, Claims::getSubject);
     }
 
-    public boolean validateToken(String token, UserDetails user) {
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+    }
+
+    private Boolean isTokenExpired(String token) {
+        Date expirationDate = extractExpiration(token);
+        boolean expired = expirationDate.before(new Date());
+
+        log.info("🔐 [JwtUtils] Token expiration check:");
+        log.info("🔐 [JwtUtils] Expiration date: {}", expirationDate);
+        log.info("🔐 [JwtUtils] Current date: {}", new Date());
+        log.info("🔐 [JwtUtils] Is expired: {}", expired);
+
+        return expired;
+    }
+
+    public String generateToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+        String token = createToken(claims, userDetails.getUsername());
+
+        log.info("✅ [JwtUtils] ========================================");
+        log.info("✅ [JwtUtils] TOKEN GENERATED");
+        log.info("✅ [JwtUtils] ========================================");
+        log.info("✅ [JwtUtils] Username: {}", userDetails.getUsername());
+        log.info("✅ [JwtUtils] Token (first 50 chars): {}...", token.substring(0, Math.min(50, token.length())));
+        log.info("✅ [JwtUtils] Expiration time: {} ms ({} hours)", expiration, expiration / 3600000);
+        log.info("✅ [JwtUtils] Expires at: {}", new Date(System.currentTimeMillis() + expiration));
+        log.info("✅ [JwtUtils] ========================================");
+
+        return token;
+    }
+
+    private String createToken(Map<String, Object> claims, String subject) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + expiration);
+
+        return Jwts.builder()
+                .claims(claims)
+                .subject(subject)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    public Boolean validateToken(String token, UserDetails userDetails) {
+        log.info("🔐 [JwtUtils] ========================================");
+        log.info("🔐 [JwtUtils] VALIDATING TOKEN");
+        log.info("🔐 [JwtUtils] ========================================");
+
         try {
-            String[] parts = token.split(".");
-            if (parts.length != 3) return false;
+            final String username = extractUsername(token);
+            final String expectedUsername = userDetails.getUsername();
 
-            String unsigned = parts[0] + "." + parts[1];
-            String signature = parts[2];
-            String expectedSig = hmacSha256(unsigned, secret);
-            if (!constantTimeEquals(expectedSig, signature)) return false;
+            log.info("🔐 [JwtUtils] Token username: {}", username);
+            log.info("🔐 [JwtUtils] Expected username: {}", expectedUsername);
+            log.info("🔐 [JwtUtils] Usernames match: {}", username.equals(expectedUsername));
 
-            String payloadJson = new String(Base64.getUrlDecoder().decode(parts[1]), StandardCharsets.UTF_8);
-            String username = extractStringClaim(payloadJson, "sub");
-            if (username == null || !username.equals(user.getUsername())) return false;
+            boolean usernameMatches = username.equals(expectedUsername);
+            boolean notExpired = !isTokenExpired(token);
+            boolean valid = usernameMatches && notExpired;
 
-            Long exp = extractLongClaim(payloadJson, "exp");
-            if (exp == null) return false;
-            long now = System.currentTimeMillis() / 1000L;
-            if (now > exp) return false;
+            log.info("🔐 [JwtUtils] Token not expired: {}", notExpired);
+            log.info("🔐 [JwtUtils] Token valid: {}", valid);
+            log.info("🔐 [JwtUtils] ========================================");
 
-            return true;
+            return valid;
         } catch (Exception e) {
+            log.error("❌ [JwtUtils] Token validation exception: {}", e.getMessage(), e);
+            log.error("❌ [JwtUtils] ========================================");
             return false;
         }
-    }
-
-    private String base64UrlEncode(String str) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(str.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private String hmacSha256(String data, String key) throws Exception {
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-        byte[] sig = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(sig);
-    }
-
-    // minimal JSON helpers (sufficient for our simple payload)
-    private String extractStringClaim(String json, String claim) {
-        String pattern = "\"" + claim + "\":\"";
-        int idx = json.indexOf(pattern);
-        if (idx == -1) return null;
-        int start = idx + pattern.length();
-        int end = json.indexOf('"', start);
-        if (end == -1) return null;
-        return json.substring(start, end).replace("\\\"", "\"").replace("\\\\", "\\");
-    }
-
-    private Long extractLongClaim(String json, String claim) {
-        String pattern = "\"" + claim + "\":";
-        int idx = json.indexOf(pattern);
-        if (idx == -1) return null;
-        int start = idx + pattern.length();
-        int end = start;
-        while (end < json.length() && (Character.isDigit(json.charAt(end)))) end++;
-        try {
-            return Long.parseLong(json.substring(start, end));
-        } catch (NumberFormatException e) {
-            return null;
-        }
-    }
-
-    // basic constant time comparison to mitigate timing attacks
-    private boolean constantTimeEquals(String a, String b) {
-        if (a == null || b == null) return false;
-        if (a.length() != b.length()) return false;
-        int result = 0;
-        for (int i = 0; i < a.length(); i++) {
-            result |= a.charAt(i) ^ b.charAt(i);
-        }
-        return result == 0;
-    }
-
-    // minimal escaping for JSON strings (username); for complex cases use a JSON lib
-    private String escape(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

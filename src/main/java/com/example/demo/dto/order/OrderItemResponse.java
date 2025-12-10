@@ -14,7 +14,9 @@ import lombok.NoArgsConstructor;
 public class OrderItemResponse {
     private Long productId;
     private String productName;
-    private int quantity;
-    private BigDecimal priceAtPurchase;
-    private BigDecimal subtotal;
+    private String productImage;
+    private Integer quantity;
+    private BigDecimal price;
+    private BigDecimal priceAtPurchase;  // Add this field
+    private BigDecimal subtotal;  // Add this field
 }

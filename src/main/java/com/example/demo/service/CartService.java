@@ -1,130 +1,114 @@
 package com.example.demo.service;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import org.springframework.http.HttpStatus;
+import com.example.demo.entity.CartItem;
+import com.example.demo.entity.Product;
+import com.example.demo.entity.User;
+import com.example.demo.repository.CartItemRepository;
+import com.example.demo.repository.ProductRepository;
+import com.example.demo.repository.UserRepository;
+import com.example.demo.dto.cart.CartResponse;
+import com.example.demo.dto.cart.CartItemResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.security.core.context.SecurityContextHolder;
-
-import lombok.RequiredArgsConstructor;
-
-import com.example.demo.dto.cart.CartItemResponse;
-import com.example.demo.dto.cart.CartResponse;
-import com.example.demo.entity.User;
-import com.example.demo.entity.Product;
-import com.example.demo.entity.CartItem;
-import com.example.demo.repository.UserRepository;
-import com.example.demo.repository.ProductRepository;
-import com.example.demo.repository.CartItemRepository;
+import java.util.List;
+import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CartService {
-
-    private final UserRepository userRepository;
-    private final ProductRepository productRepository;
+    
     private final CartItemRepository cartItemRepository;
-    private final ProductService productService;
-
-    private User getCurrentUser() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
-        String email;
-        if (principal instanceof org.springframework.security.core.userdetails.UserDetails) {
-            email = ((org.springframework.security.core.userdetails.UserDetails) principal).getUsername();
-        } else {
-            email = principal.toString();
-        }
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
-    }
-
-    private CartResponse buildCartResponse(User user) {
-        List<CartItemResponse> items = user.getCart().stream().map(ci -> {
-            Product p = ci.getProduct();
-            BigDecimal price = p.getPrice();
-            BigDecimal subtotal = price.multiply(BigDecimal.valueOf(ci.getQuantity()));
-            return CartItemResponse.builder()
-                    .productId(p.getId())
-                    .productName(p.getName())
-                    .price(price)
-                    .quantity(ci.getQuantity())
-                    .subtotal(subtotal)
-                    .build();
-        }).collect(Collectors.toList());
-        BigDecimal total = items.stream().map(CartItemResponse::getSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return CartResponse.builder().items(items).total(total).build();
-    }
+    private final ProductRepository productRepository;
+    private final UserRepository userRepository;
 
     @Transactional
-    public CartResponse addToCart(Long productId, int quantity) {
-        if (quantity <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity must be greater than zero");
-        User user = getCurrentUser();
+    public CartItemResponse addToCart(Long userId, Long productId, Integer quantity) {
+        log.info("🛒 [CartService] addToCart - userId: {}, productId: {}, quantity: {}", userId, productId, quantity);
+        
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> {
+                log.error("❌ [CartService] User not found: {}", userId);
+                return new RuntimeException("User not found");
+            });
+        
+        log.info("✅ [CartService] User found: {}", user.getEmail());
+        
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+            .orElseThrow(() -> {
+                log.error("❌ [CartService] Product not found: {}", productId);
+                return new RuntimeException("Product not found");
+            });
+        
+        log.info("✅ [CartService] Product found: {}", product.getName());
 
-        Optional<CartItem> existing = cartItemRepository.findByUserAndProduct(user, product);
-        if (existing.isPresent()) {
-            CartItem ci = existing.get();
-            ci.setQuantity(ci.getQuantity() + quantity);
-            cartItemRepository.save(ci);
+        // Check if item already exists in cart
+        CartItem cartItem = cartItemRepository
+            .findByUserIdAndProductId(userId, productId)
+            .orElse(null);
+
+        if (cartItem != null) {
+            log.info("🛒 [CartService] Item already in cart, updating quantity from {} to {}", 
+                     cartItem.getQuantity(), cartItem.getQuantity() + quantity);
+            cartItem.setQuantity(cartItem.getQuantity() + quantity);
         } else {
-            CartItem ci = CartItem.builder().user(user).product(product).quantity(quantity).build();
-            user.getCart().add(ci);
-            userRepository.save(user);
+            log.info("🛒 [CartService] Creating new cart item");
+            cartItem = CartItem.builder()
+                .user(user)
+                .product(product)
+                .quantity(quantity)
+                .build();
         }
 
-        // reload user to ensure relationships are initialized
-        User refreshed = userRepository.findById(user.getId()).orElse(user);
-        return buildCartResponse(refreshed);
+        CartItem saved = cartItemRepository.save(cartItem);
+        log.info("✅ [CartService] Cart item saved successfully: {}", saved.getId());
+        
+        return toCartItemResponse(saved);
+    }
+
+    public CartResponse getCart(Long userId) {
+        List<CartItem> items = cartItemRepository.findByUserId(userId);
+        
+        List<CartItemResponse> itemResponses = items.stream()
+            .map(this::toCartItemResponse)
+            .collect(Collectors.toList());
+
+        return CartResponse.builder()
+            .items(itemResponses)
+            .build();
     }
 
     @Transactional
-    public CartResponse updateCart(Long productId, int quantity) {
-        if (quantity <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quantity must be greater than zero");
-        User user = getCurrentUser();
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
-
-        CartItem ci = cartItemRepository.findByUserAndProduct(user, product)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cart item not found"));
-        ci.setQuantity(quantity);
-        cartItemRepository.save(ci);
-
-        User refreshed = userRepository.findById(user.getId()).orElse(user);
-        return buildCartResponse(refreshed);
+    public void removeFromCart(Long userId, Long productId) {
+        cartItemRepository.deleteByUserIdAndProductId(userId, productId);
     }
 
     @Transactional
-    public CartResponse removeFromCart(Long productId) {
-        User user = getCurrentUser();
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+    public CartItemResponse updateQuantity(Long userId, Long productId, Integer quantity) {
+        CartItem cartItem = cartItemRepository
+            .findByUserIdAndProductId(userId, productId)
+            .orElseThrow(() -> new RuntimeException("Cart item not found"));
 
-        cartItemRepository.findByUserAndProduct(user, product).ifPresent(ci -> {
-            user.getCart().remove(ci);
-            cartItemRepository.delete(ci);
-            userRepository.save(user);
-        });
+        if (quantity <= 0) {
+            cartItemRepository.delete(cartItem);
+            return null;
+        }
 
-        User refreshed = userRepository.findById(user.getId()).orElse(user);
-        return buildCartResponse(refreshed);
+        cartItem.setQuantity(quantity);
+        CartItem updated = cartItemRepository.save(cartItem);
+        return toCartItemResponse(updated);
     }
 
-    public CartResponse getCart() {
-        User user = getCurrentUser();
-        return buildCartResponse(user);
-    }
-
-    @Transactional
-    public void clearCart() {
-        User user = getCurrentUser();
-        user.getCart().clear();
-        userRepository.save(user);
+    private CartItemResponse toCartItemResponse(CartItem item) {
+        return CartItemResponse.builder()
+            .productId(item.getProduct().getId())
+            .name(item.getProduct().getName())
+            .description(item.getProduct().getDescription())
+            .price(item.getProduct().getPrice())
+            .imageUrl(item.getProduct().getImageUrl())
+            .quantity(item.getQuantity())
+            .build();
     }
 }

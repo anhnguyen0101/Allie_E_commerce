@@ -13,8 +13,9 @@ import lombok.NoArgsConstructor;
 @Builder
 public class CartItemResponse {
     private Long productId;
-    private String productName;
+    private String name;
+    private String description;
     private BigDecimal price;
-    private int quantity;
-    private BigDecimal subtotal;
+    private String imageUrl;
+    private Integer quantity;
 }

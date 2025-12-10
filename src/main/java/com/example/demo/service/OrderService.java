@@ -1,129 +1,94 @@
 package com.example.demo.service;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.security.core.context.SecurityContextHolder;
-
-import lombok.RequiredArgsConstructor;
-
-import com.example.demo.entity.User;
-import com.example.demo.entity.Product;
-import com.example.demo.entity.CartItem;
 import com.example.demo.entity.Order;
 import com.example.demo.entity.OrderItem;
-import com.example.demo.repository.UserRepository;
-import com.example.demo.repository.ProductRepository;
-import com.example.demo.repository.CartItemRepository;
+import com.example.demo.entity.CartItem;
+import com.example.demo.entity.User;
 import com.example.demo.repository.OrderRepository;
-import com.example.demo.dto.order.OrderItemResponse;
+import com.example.demo.repository.CartItemRepository;
+import com.example.demo.repository.UserRepository;
 import com.example.demo.dto.order.OrderResponse;
+import com.example.demo.dto.order.OrderItemResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
 public class OrderService {
-
-    private final UserRepository userRepository;
-    private final ProductRepository productRepository;
-    private final CartItemRepository cartItemRepository;
+    
     private final OrderRepository orderRepository;
+    private final CartItemRepository cartItemRepository;
+    private final UserRepository userRepository;
 
-    private User getCurrentUser() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
-        String email;
-        if (principal instanceof org.springframework.security.core.userdetails.UserDetails) {
-            email = ((org.springframework.security.core.userdetails.UserDetails) principal).getUsername();
-        } else {
-            email = principal.toString();
-        }
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+    public List<OrderResponse> getUserOrders(Long userId) {
+        List<Order> orders = orderRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        return orders.stream()
+            .map(this::toOrderResponse)
+            .collect(Collectors.toList());
     }
 
     @Transactional
-    public OrderResponse checkout() {
-        User user = getCurrentUser();
-        List<CartItem> cart = user.getCart();
-        if (cart == null || cart.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cart is empty");
+    public OrderResponse checkout(Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        List<CartItem> cartItems = cartItemRepository.findByUserId(userId);
+        if (cartItems.isEmpty()) {
+            throw new RuntimeException("Cart is empty");
         }
 
+        // Calculate total
+        BigDecimal total = cartItems.stream()
+            .map(item -> item.getProduct().getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Create order
         Order order = Order.builder()
-                .user(user)
-                .orderDate(LocalDateTime.now())
+            .user(user)
+            .totalAmount(total)
+            .status(Order.OrderStatus.PENDING)
+            .build();
+        
+        // Create order items from cart items
+        for (CartItem cartItem : cartItems) {
+            OrderItem orderItem = OrderItem.builder()
+                .order(order)
+                .product(cartItem.getProduct())
+                .quantity(cartItem.getQuantity())
+                .price(cartItem.getProduct().getPrice())
                 .build();
-
-        BigDecimal total = BigDecimal.ZERO;
-
-        for (CartItem ci : cart) {
-            Product p = ci.getProduct();
-            if (p == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found");
-            BigDecimal price = p.getPrice();
-            int qty = ci.getQuantity();
-            BigDecimal subtotal = price.multiply(BigDecimal.valueOf(qty));
-            total = total.add(subtotal);
-
-            OrderItem oi = OrderItem.builder()
-                    .order(order)
-                    .product(p)
-                    .quantity(qty)
-                    .priceAtPurchase(price)
-                    .build();
-            order.getItems().add(oi);
+            order.getItems().add(orderItem);
         }
 
-        order.setTotal(total);
-        Order saved = orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
+        
+        // Clear cart after checkout
+        cartItemRepository.deleteAll(cartItems);
 
-        // clear cart
-        user.getCart().clear();
-        userRepository.save(user);
-
-        // map to DTO
-        List<OrderItemResponse> items = saved.getItems().stream().map(oi ->
-            OrderItemResponse.builder()
-                .productId(oi.getProduct().getId())
-                .productName(oi.getProduct().getName())
-                .quantity(oi.getQuantity())
-                .priceAtPurchase(oi.getPriceAtPurchase())
-                .subtotal(oi.getPriceAtPurchase().multiply(BigDecimal.valueOf(oi.getQuantity())))
-                .build()
-        ).collect(Collectors.toList());
-
-        return OrderResponse.builder()
-                .orderId(saved.getId())
-                .orderDate(saved.getOrderDate())
-                .total(saved.getTotal())
-                .items(items)
-                .build();
+        return toOrderResponse(savedOrder);
     }
 
-    public List<OrderResponse> getUserOrders() {
-        User user = getCurrentUser();
-        List<Order> orders = orderRepository.findByUser(user);
-        return orders.stream().map(o -> {
-            List<OrderItemResponse> items = o.getItems().stream().map(oi ->
-                OrderItemResponse.builder()
-                    .productId(oi.getProduct().getId())
-                    .productName(oi.getProduct().getName())
-                    .quantity(oi.getQuantity())
-                    .priceAtPurchase(oi.getPriceAtPurchase())
-                    .subtotal(oi.getPriceAtPurchase().multiply(BigDecimal.valueOf(oi.getQuantity())))
-                    .build()
-            ).collect(Collectors.toList());
-            return OrderResponse.builder()
-                    .orderId(o.getId())
-                    .orderDate(o.getOrderDate())
-                    .total(o.getTotal())
-                    .items(items)
-                    .build();
-        }).collect(Collectors.toList());
+    private OrderResponse toOrderResponse(Order order) {
+        List<OrderItemResponse> items = order.getItems().stream()
+            .map(item -> OrderItemResponse.builder()
+                .productId(item.getProduct().getId())
+                .productName(item.getProduct().getName())
+                .productImage(item.getProduct().getImageUrl())
+                .quantity(item.getQuantity())
+                .price(item.getPrice())
+                .build())
+            .collect(Collectors.toList());
+
+        return OrderResponse.builder()
+            .id(order.getId())
+            .totalAmount(order.getTotalAmount())
+            .status(order.getStatus().name())
+            .createdAt(order.getCreatedAt())
+            .items(items)
+            .build();
     }
 }

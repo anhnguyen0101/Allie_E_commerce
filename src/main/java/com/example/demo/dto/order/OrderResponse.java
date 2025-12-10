@@ -14,8 +14,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class OrderResponse {
-    private Long orderId;
-    private LocalDateTime orderDate;
-    private BigDecimal total;
+    private Long id;
+    private Long orderId;  // Add this field
+    private BigDecimal totalAmount;
+    private BigDecimal total;  // Add this field
+    private String status;
+    private LocalDateTime createdAt;
+    private LocalDateTime orderDate;  // Add this field
     private List<OrderItemResponse> items;
 }
