@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { CartService } from '../../services/cart.service';
 import { AuthService } from '../../services/auth.service';
+import { WishlistService } from '../../services/wishlist.service';
 
 @Component({
   selector: 'app-product-card',
@@ -21,6 +22,7 @@ export class ProductCard implements OnInit {
   constructor(
     private cartService: CartService,
     private authService: AuthService,
+    private wishlistService: WishlistService,
     private router: Router
   ) {}
 
@@ -30,8 +32,8 @@ export class ProductCard implements OnInit {
     this.rating = this.product?.rating || (Math.random() * 1.5 + 3.5);
     this.generateStars();
     
-    // TODO: Check if product is in wishlist from service
-    this.isInWishlist = false;
+    // Check if product is already in wishlist
+    this.checkWishlistStatus();
   }
 
   generateStars(): void {
@@ -39,13 +41,86 @@ export class ProductCard implements OnInit {
     this.ratingStars = Array(5).fill(false).map((_, i) => i < fullStars);
   }
 
+  checkWishlistStatus(): void {
+    // Check if user is logged in
+    const token = this.authService.getToken();
+    if (!token) {
+      this.isInWishlist = false;
+      return;
+    }
+
+    // Check if product is in wishlist
+    this.wishlistService.getWishlist().subscribe({
+      next: (wishlistItems) => {
+        this.isInWishlist = wishlistItems.some((item: any) => item.productId === this.product.id);
+      },
+      error: (err) => {
+        console.error('Error checking wishlist status:', err);
+        this.isInWishlist = false;
+      }
+    });
+  }
+
   toggleWishlist(event: Event): void {
     event.preventDefault();
     event.stopPropagation();
-    this.isInWishlist = !this.isInWishlist;
     
-    // TODO: Add/remove from wishlist service
-    console.log(`Product ${this.product.id} ${this.isInWishlist ? 'added to' : 'removed from'} wishlist`);
+    console.log('❤️ [ProductCard] Wishlist heart clicked');
+    console.log('❤️ [ProductCard] Product ID:', this.product.id);
+    console.log('❤️ [ProductCard] Current wishlist status:', this.isInWishlist);
+    
+    // Check if user is logged in
+    const token = this.authService.getToken();
+    if (!token) {
+      console.warn('⚠️ [ProductCard] User not logged in - redirecting to login');
+      alert('Please login first to add items to your wishlist');
+      this.router.navigate(['/login']);
+      return;
+    }
+    
+    if (this.isInWishlist) {
+      // Remove from wishlist
+      console.log('❤️ [ProductCard] Removing from wishlist...');
+      this.wishlistService.removeFromWishlist(this.product.id).subscribe({
+        next: () => {
+          console.log('✅ [ProductCard] Removed from wishlist successfully');
+          this.isInWishlist = false;
+          alert(`${this.product.name} removed from wishlist!`);
+        },
+        error: (err) => {
+          console.error('❌ [ProductCard] Error removing from wishlist:', err);
+          
+          if (err.status === 401 || err.status === 403) {
+            alert('Your session expired. Please login again.');
+            this.authService.logout();
+            this.router.navigate(['/login']);
+          } else {
+            alert(`Failed to remove ${this.product.name} from wishlist. Please try again.`);
+          }
+        }
+      });
+    } else {
+      // Add to wishlist
+      console.log('❤️ [ProductCard] Adding to wishlist...');
+      this.wishlistService.addToWishlist(this.product.id).subscribe({
+        next: () => {
+          console.log('✅ [ProductCard] Added to wishlist successfully');
+          this.isInWishlist = true;
+          alert(`${this.product.name} added to wishlist!`);
+        },
+        error: (err) => {
+          console.error('❌ [ProductCard] Error adding to wishlist:', err);
+          
+          if (err.status === 401 || err.status === 403) {
+            alert('Your session expired. Please login again.');
+            this.authService.logout();
+            this.router.navigate(['/login']);
+          } else {
+            alert(`Failed to add ${this.product.name} to wishlist. Please try again.`);
+          }
+        }
+      });
+    }
   }
 
   addToCart(event: Event): void {

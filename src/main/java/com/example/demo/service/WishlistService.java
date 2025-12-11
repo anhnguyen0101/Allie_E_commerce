@@ -1,65 +1,84 @@
 package com.example.demo.service;
 
+import com.example.demo.entity.User;
+import com.example.demo.entity.Product;
+import com.example.demo.repository.UserRepository;
+import com.example.demo.repository.ProductRepository;
+import com.example.demo.dto.wishlist.WishlistItemResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.security.core.context.SecurityContextHolder;
-
-import lombok.RequiredArgsConstructor;
-
-import com.example.demo.repository.UserRepository;
-import com.example.demo.repository.ProductRepository;
-import com.example.demo.entity.User;
-import com.example.demo.entity.Product;
-import com.example.demo.dto.product.ProductResponse;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class WishlistService {
-
+    
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
-    private final ProductService productService;
 
-    private User getCurrentUser() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Not authenticated");
-        String email;
-        if (principal instanceof org.springframework.security.core.userdetails.UserDetails) {
-            email = ((org.springframework.security.core.userdetails.UserDetails) principal).getUsername();
-        } else {
-            email = principal.toString();
-        }
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+    @Transactional(readOnly = true)
+    public List<WishlistItemResponse> getWishlist(Long userId) {
+        log.info("❤️ [WishlistService] Getting wishlist for user ID: {}", userId);
+        
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        // Force initialization of wishlist within transaction
+        List<WishlistItemResponse> wishlist = user.getWishlist().stream()
+            .map(product -> WishlistItemResponse.builder()
+                .productId(product.getId())
+                .name(product.getName())
+                .description(product.getDescription())
+                .price(product.getPrice())
+                .imageUrl(product.getImageUrl())
+                .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+                .build())
+            .collect(Collectors.toList());
+        
+        log.info("✅ [WishlistService] Wishlist loaded: {} items", wishlist.size());
+        return wishlist;
     }
 
     @Transactional
-    public List<ProductResponse> addToWishlist(Long productId) {
-        User user = getCurrentUser();
+    public WishlistItemResponse addToWishlist(Long userId, Long productId) {
+        log.info("❤️ [WishlistService] Adding product {} to wishlist for user {}", productId, userId);
+        
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+            .orElseThrow(() -> new RuntimeException("Product not found"));
+        
         user.getWishlist().add(product);
         userRepository.save(user);
-        return user.getWishlist().stream().map(productService::toResponse).collect(Collectors.toList());
+        
+        log.info("✅ [WishlistService] Product added to wishlist");
+        
+        return WishlistItemResponse.builder()
+            .productId(product.getId())
+            .name(product.getName())
+            .description(product.getDescription())
+            .price(product.getPrice())
+            .imageUrl(product.getImageUrl())
+            .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+            .build();
     }
 
     @Transactional
-    public List<ProductResponse> removeFromWishlist(Long productId) {
-        User user = getCurrentUser();
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
-        user.getWishlist().remove(product);
+    public void removeFromWishlist(Long userId, Long productId) {
+        log.info("❤️ [WishlistService] Removing product {} from wishlist for user {}", productId, userId);
+        
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        user.getWishlist().removeIf(product -> product.getId().equals(productId));
         userRepository.save(user);
-        return user.getWishlist().stream().map(productService::toResponse).collect(Collectors.toList());
-    }
-
-    public List<ProductResponse> getWishlist() {
-        User user = getCurrentUser();
-        return user.getWishlist().stream().map(productService::toResponse).collect(Collectors.toList());
+        
+        log.info("✅ [WishlistService] Product removed from wishlist");
     }
 }

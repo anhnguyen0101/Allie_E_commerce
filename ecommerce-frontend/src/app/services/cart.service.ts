@@ -1,12 +1,16 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, BehaviorSubject } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { AuthService } from './auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class CartService {
   private apiUrl = 'http://localhost:8080/api/cart';
+  
+  // BehaviorSubject to broadcast cart count changes
+  private cartCountSubject = new BehaviorSubject<number>(0);
+  public cartCount$ = this.cartCountSubject.asObservable();
 
   constructor(
     private http: HttpClient,
@@ -16,7 +20,12 @@ export class CartService {
   getCart(): Observable<any> {
     console.log('🛒 [CartService] Getting cart from:', this.apiUrl);
     return this.http.get<any>(this.apiUrl).pipe(
-      tap(response => console.log('✅ [CartService] Cart loaded:', response)),
+      tap(response => {
+        console.log('✅ [CartService] Cart loaded:', response);
+        // Update count whenever cart is fetched
+        const count = response.items?.length || 0;
+        this.cartCountSubject.next(count);
+      }),
       tap({
         error: (err) => console.error('❌ [CartService] Error loading cart:', err)
       })
@@ -81,11 +90,27 @@ export class CartService {
       .set('productId', productId.toString())
       .set('quantity', quantity.toString());
     
-    return this.http.put<any>(this.apiUrl, null, { params });
+    return this.http.put<any>(this.apiUrl, null, { params }).pipe(
+      tap(() => {
+        // Refresh count after update
+        this.refreshCount();
+      })
+    );
   }
 
   removeFromCart(productId: number): Observable<any> {
     const params = new HttpParams().set('productId', productId.toString());
-    return this.http.delete(this.apiUrl, { params });
+    return this.http.delete(this.apiUrl, { params }).pipe(
+      tap(() => {
+        // Decrement count immediately after successful remove
+        const currentCount = this.cartCountSubject.value;
+        this.cartCountSubject.next(Math.max(0, currentCount - 1));
+      })
+    );
+  }
+
+  // Method to manually refresh count
+  refreshCount(): void {
+    this.getCart().subscribe();
   }
 }

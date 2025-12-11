@@ -53,14 +53,48 @@ export class AuthService {
   }
 
   register(name: string, email: string, password: string): Observable<any> {
+    console.log('🔐 ========================================');
+    console.log('🔐 [AuthService] REGISTER METHOD CALLED');
+    console.log('🔐 ========================================');
+    console.log('🔐 [AuthService] Name:', name);
+    console.log('🔐 [AuthService] Email:', email);
+    console.log('🔐 [AuthService] Password length:', password.length);
+    console.log('🔐 [AuthService] API URL:', `${this.apiUrl}/register`);
+    console.log('🔐 [AuthService] Request body:', { name, email, password: '***' });
+    
     return this.http.post<{ token: string; email: string; name: string }>(`${this.apiUrl}/register`, { name, email, password })
       .pipe(
-        tap(res => {
-          this.saveToken(res.token);
-          if (res.email && res.name) {
-            const user = { email: res.email, name: res.name };
-            this.saveUser(user);
-            this.currentUserSubject.next(user);
+        tap({
+          next: (res) => {
+            console.log('✅ ========================================');
+            console.log('✅ [AuthService] REGISTER HTTP SUCCESS');
+            console.log('✅ ========================================');
+            console.log('✅ [AuthService] Response:', res);
+            console.log('✅ [AuthService] Response.token:', res.token);
+            console.log('✅ [AuthService] Response.email:', res.email);
+            console.log('✅ [AuthService] Response.name:', res.name);
+            
+            this.saveToken(res.token);
+            console.log('✅ [AuthService] Token saved to localStorage');
+            
+            if (res.email && res.name) {
+              const user = { email: res.email, name: res.name };
+              this.saveUser(user);
+              console.log('✅ [AuthService] User saved to localStorage:', user);
+              
+              this.currentUserSubject.next(user);
+              console.log('✅ [AuthService] currentUserSubject updated');
+            }
+          },
+          error: (err) => {
+            console.error('❌ ========================================');
+            console.error('❌ [AuthService] REGISTER HTTP ERROR');
+            console.error('❌ ========================================');
+            console.error('❌ [AuthService] Error:', err);
+            console.error('❌ [AuthService] Error status:', err.status);
+            console.error('❌ [AuthService] Error statusText:', err.statusText);
+            console.error('❌ [AuthService] Error message:', err.message);
+            console.error('❌ [AuthService] Error url:', err.url);
           }
         })
       );

@@ -1,9 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterModule } from '@angular/router';
+import { Router, RouterModule, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
-import { Observable } from 'rxjs';
+import { WishlistService } from '../../services/wishlist.service';
+import { CartService } from '../../services/cart.service';
+import { Observable, Subscription } from 'rxjs';
 import { FormsModule } from '@angular/forms';
+import { filter } from 'rxjs/operators';
 
 @Component({
   selector: 'app-navbar',
@@ -12,7 +15,7 @@ import { FormsModule } from '@angular/forms';
   templateUrl: './navbar.html',
   styleUrls: ['./navbar.css']
 })
-export class Navbar implements OnInit {
+export class Navbar implements OnInit, OnDestroy {
   currentUser$!: Observable<any>;
   searchQuery: string = '';
   wishlistCount: number = 0;
@@ -20,8 +23,12 @@ export class Navbar implements OnInit {
   showDropdown: boolean = false;
   showMobileMenu: boolean = false;
 
+  private subscriptions = new Subscription();
+
   constructor(
     private authService: AuthService,
+    private wishlistService: WishlistService,
+    private cartService: CartService,
     private router: Router
   ) {
     console.log('🚀 [Navbar] CONSTRUCTOR CALLED');
@@ -33,16 +40,68 @@ export class Navbar implements OnInit {
     
     this.currentUser$ = this.authService.currentUser$;
     
-    this.currentUser$.subscribe(user => {
-      console.log('🔍 [Navbar] Current user:', user);
+    // Subscribe to real-time wishlist count updates
+    const wishlistSub = this.wishlistService.wishlistCount$.subscribe(count => {
+      this.wishlistCount = count;
+      console.log('📊 [Navbar] Wishlist count updated:', count);
     });
+    this.subscriptions.add(wishlistSub);
+
+    // Subscribe to real-time cart count updates
+    const cartSub = this.cartService.cartCount$.subscribe(count => {
+      this.cartCount = count;
+      console.log('📊 [Navbar] Cart count updated:', count);
+    });
+    this.subscriptions.add(cartSub);
+
+    // Load counts when user logs in
+    const userSub = this.currentUser$.subscribe(user => {
+      console.log('🔍 [Navbar] Current user:', user);
+      if (user) {
+        this.loadCounts();
+      } else {
+        this.wishlistCount = 0;
+        this.cartCount = 0;
+      }
+    });
+    this.subscriptions.add(userSub);
+
+    // Reload counts after navigation (e.g., after adding to cart/wishlist)
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      if (this.authService.isLoggedIn()) {
+        this.loadCounts();
+      }
+    });
+
+    // Initial load if already logged in
+    if (this.authService.isLoggedIn()) {
+      this.loadCounts();
+    }
+  }
+
+  ngOnDestroy(): void {
+    // Clean up subscriptions to prevent memory leaks
+    this.subscriptions.unsubscribe();
+  }
+
+  loadCounts(): void {
+    console.log('📊 [Navbar] Loading initial wishlist and cart counts...');
     
-    // TODO: Get actual wishlist and cart counts from services
-    this.wishlistCount = 3;
-    this.cartCount = 5;
-    
-    console.log('🔍 [Navbar] Wishlist count:', this.wishlistCount);
-    console.log('🔍 [Navbar] Cart count:', this.cartCount);
+    // Load wishlist count (will trigger wishlistCount$ update)
+    this.wishlistService.getWishlist().subscribe({
+      error: (err) => {
+        console.error('❌ [Navbar] Error loading wishlist:', err);
+      }
+    });
+
+    // Load cart count (will trigger cartCount$ update)
+    this.cartService.getCart().subscribe({
+      error: (err) => {
+        console.error('❌ [Navbar] Error loading cart:', err);
+      }
+    });
   }
 
   onSearch(): void {
@@ -63,6 +122,8 @@ export class Navbar implements OnInit {
   logout(): void {
     this.authService.logout();
     this.showDropdown = false;
+    this.wishlistCount = 0;
+    this.cartCount = 0;
     this.router.navigate(['/']);
   }
 

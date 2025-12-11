@@ -36,8 +36,44 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<TokenResponse> register(@RequestBody RegisterRequest request) {
-        TokenResponse token = authService.register(request);
-        return ResponseEntity.created(URI.create("/api/auth/register")).body(token);
+        log.info("📝 ========================================");
+        log.info("📝 [AuthController] POST /api/auth/register");
+        log.info("📝 ========================================");
+        log.info("📝 [AuthController] Request body - Name: {}", request.getName());
+        log.info("📝 [AuthController] Request body - Email: {}", request.getEmail());
+        log.info("📝 [AuthController] Request body - Password length: {}", request.getPassword() != null ? request.getPassword().length() : 0);
+        
+        try {
+            TokenResponse token = authService.register(request);
+            
+            log.info("✅ ========================================");
+            log.info("✅ [AuthController] REGISTRATION SUCCESS");
+            log.info("✅ ========================================");
+            log.info("✅ [AuthController] Token generated (first 20 chars): {}...", token.getToken().substring(0, 20));
+            log.info("✅ [AuthController] User email: {}", token.getEmail());
+            log.info("✅ [AuthController] User name: {}", token.getName());
+            
+            return ResponseEntity.created(URI.create("/api/auth/register")).body(token);
+        } catch (IllegalArgumentException e) {
+            log.error("❌ ========================================");
+            log.error("❌ [AuthController] REGISTRATION FAILED - Validation Error");
+            log.error("❌ ========================================");
+            log.error("❌ [AuthController] Error: {}", e.getMessage());
+            
+            // Return 409 Conflict for duplicate email
+            if (e.getMessage().contains("Email already in use")) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            }
+            
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (Exception e) {
+            log.error("❌ ========================================");
+            log.error("❌ [AuthController] REGISTRATION FAILED - Internal Error");
+            log.error("❌ ========================================");
+            log.error("❌ [AuthController] Error: {}", e.getMessage(), e);
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @PostMapping("/login")
