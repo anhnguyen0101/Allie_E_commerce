@@ -16,4 +16,5 @@ public class TokenResponse {
     private String token;
     private String email;
     private String name;
+    private String role; // ✅ ADD ROLE
 }

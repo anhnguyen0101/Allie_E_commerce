@@ -79,6 +79,13 @@ export class Navbar implements OnInit, OnDestroy {
     if (this.authService.isLoggedIn()) {
       this.loadCounts();
     }
+
+    // ✅ ADD DEBUG LOGGING
+    this.currentUser$.subscribe(user => {
+      console.log('👤 [Navbar] Current user:', user);
+      console.log('👤 [Navbar] User role:', user?.role);
+      console.log('👤 [Navbar] Is admin?:', user?.role === 'ADMIN');
+    });
   }
 
   ngOnDestroy(): void {

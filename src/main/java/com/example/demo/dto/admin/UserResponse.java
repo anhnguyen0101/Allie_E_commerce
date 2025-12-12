@@ -1,20 +1,17 @@
-package com.example.demo.dto.category;
+package com.example.demo.dto.admin;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO returned to clients for Category resources.
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class CategoryResponse {
-
+public class UserResponse {
     private Long id;
     private String name;
-    private String description; // ✅ MAKE SURE THIS LINE EXISTS
+    private String email;
+    private String role;
 }

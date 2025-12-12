@@ -73,7 +73,16 @@
             <div class="px-4 py-2 border-b border-gray-100">
               <p class="text-sm font-semibold text-gray-900">{{ user.name }}</p>
               <p class="text-xs text-gray-500 truncate">{{ user.email }}</p>
+              <span *ngIf="user.role === 'ADMIN'" class="inline-block mt-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full">
+                ADMIN
+              </span>
             </div>
+            
+            <!-- ✅ ADD ADMIN DASHBOARD LINK -->
+            <a *ngIf="user.role === 'ADMIN'" routerLink="/admin" (click)="closeDropdown()" class="block px-4 py-2 text-sm text-purple-700 hover:bg-purple-50 transition-colors font-semibold">
+              🛡️ Admin Dashboard
+            </a>
+            
             <a routerLink="/profile" (click)="closeDropdown()" class="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
               👤 Profile
             </a>

@@ -9,7 +9,7 @@ interface User {
   id?: number;
   name: string;
   email: string;
-  role?: string;
+  role?: string; // ✅ ADD ROLE
 }
 
 @Injectable({ providedIn: 'root' })
@@ -33,11 +33,11 @@ export class AuthService {
   }
 
   login(email: string, password: string): Observable<any> {
-    return this.http.post<{ token: string; email: string; name: string }>(`${this.apiUrl}/login`, { email, password })
+    return this.http.post<{ token: string; email: string; name: string; role: string }>(`${this.apiUrl}/login`, { email, password })
       .pipe(
         tap(res => {
           this.saveToken(res.token);
-          const user = { email: res.email, name: res.name };
+          const user = { email: res.email, name: res.name, role: res.role }; // ✅ SAVE ROLE
           this.saveUser(user);
           this.currentUserSubject.next(user);
         })
@@ -62,7 +62,7 @@ export class AuthService {
     console.log('🔐 [AuthService] API URL:', `${this.apiUrl}/register`);
     console.log('🔐 [AuthService] Request body:', { name, email, password: '***' });
     
-    return this.http.post<{ token: string; email: string; name: string }>(`${this.apiUrl}/register`, { name, email, password })
+    return this.http.post<{ token: string; email: string; name: string; role: string }>(`${this.apiUrl}/register`, { name, email, password })
       .pipe(
         tap({
           next: (res) => {
@@ -78,7 +78,7 @@ export class AuthService {
             console.log('✅ [AuthService] Token saved to localStorage');
             
             if (res.email && res.name) {
-              const user = { email: res.email, name: res.name };
+              const user = { email: res.email, name: res.name, role: res.role }; // ✅ SAVE ROLE
               this.saveUser(user);
               console.log('✅ [AuthService] User saved to localStorage:', user);
               
@@ -143,5 +143,16 @@ export class AuthService {
 
   isLoggedIn(): boolean {
     return !!this.getToken();
+  }
+
+  // ✅ ADD METHOD TO GET USER ROLE
+  getUserRole(): string | null {
+    const user = this.getUser();
+    return user?.role || null;
+  }
+
+  // ✅ ADD METHOD TO CHECK IF USER IS ADMIN
+  isAdmin(): boolean {
+    return this.getUserRole() === 'ADMIN';
   }
 }

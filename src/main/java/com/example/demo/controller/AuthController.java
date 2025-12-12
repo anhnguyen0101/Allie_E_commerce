@@ -15,6 +15,7 @@ import jakarta.validation.Valid;
 
 import com.example.demo.service.AuthService;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.security.JwtUtils;
 import com.example.demo.dto.auth.LoginRequest;
 import com.example.demo.dto.auth.RegisterRequest;
 import com.example.demo.dto.auth.TokenResponse;
@@ -29,10 +30,10 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/auth")
-
 public class AuthController {
     private final AuthService authService;
     private final UserRepository userRepository;
+    private final JwtUtils jwtUtils;
 
     @PostMapping("/register")
     public ResponseEntity<TokenResponse> register(@RequestBody RegisterRequest request) {
@@ -101,5 +102,47 @@ public class AuthController {
                 .role(user.getRole().name())
                 .build();
         return ResponseEntity.ok(dto);
+    }
+
+    // ⚠️ TEMPORARY ADMIN SETUP ENDPOINT - REMOVE IN PRODUCTION!
+    @PostMapping("/setup-admin")
+    public ResponseEntity<TokenResponse> setupAdmin(@RequestBody RegisterRequest request) {
+        log.warn("⚠️ [AuthController] ADMIN SETUP ENDPOINT CALLED - THIS SHOULD BE DISABLED IN PRODUCTION!");
+        
+        // Check if any admin exists
+        long adminCount = userRepository.findAll().stream()
+            .filter(u -> u.getRole() == User.Role.ADMIN)
+            .count();
+        
+        if (adminCount > 0) {
+            log.error("❌ [AuthController] Admin already exists - blocking setup");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        
+        // Check if email already exists
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            log.error("❌ [AuthController] Email already in use");
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+        
+        // Create admin user
+        User admin = User.builder()
+            .name(request.getName())
+            .email(request.getEmail())
+            .password(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode(request.getPassword()))
+            .role(User.Role.ADMIN)
+            .build();
+        
+        User savedAdmin = userRepository.save(admin);
+        String token = jwtUtils.generateToken(authService.toUserDetails(savedAdmin)); // ✅ NOW THIS WORKS
+        
+        log.info("✅ [AuthController] ADMIN USER CREATED: {}", savedAdmin.getEmail());
+        
+        return ResponseEntity.ok(TokenResponse.builder()
+            .token(token)
+            .email(savedAdmin.getEmail())
+            .name(savedAdmin.getName())
+            .role(savedAdmin.getRole().name())
+            .build());
     }
 }

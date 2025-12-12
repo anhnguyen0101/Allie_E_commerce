@@ -31,10 +31,13 @@ public class ProductResponse {
     // monetary price (BigDecimal recommended for money)
     private BigDecimal price;
 
-    // name of the category this product belongs to
-    private String categoryName;
-
     // URL of the product image (if uploaded)
     private String imageUrl;
+
+    // identifier of the category this product belongs to
+    private Long categoryId;
+
+    // name of the category this product belongs to
+    private String categoryName;
 
 }

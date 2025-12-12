@@ -42,6 +42,9 @@ public class Category {
     @Column(nullable = false, unique = true)
     private String name;
 
+    @Column(length = 500)
+    private String description;
+
     /**
      * Products in this category. Using cascade ALL and orphanRemoval=true so that
      * product lifecycle can be managed via the category when appropriate.

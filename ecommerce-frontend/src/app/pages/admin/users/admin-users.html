@@ -1,0 +1,54 @@
+<div class="p-8">
+  <h1 class="text-3xl font-bold mb-8">Users Management</h1>
+
+  <div *ngIf="loading" class="text-center py-12">
+    <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+  </div>
+
+  <div *ngIf="!loading" class="bg-white rounded-xl shadow-lg overflow-hidden">
+    <table class="w-full">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+          <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Name</th>
+          <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
+          <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Role</th>
+          <th class="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-200">
+        <tr *ngFor="let user of users" class="hover:bg-gray-50 transition-colors">
+          <td class="px-6 py-4 text-gray-900">{{ user.id }}</td>
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
+                {{ user.name?.charAt(0).toUpperCase() }}
+              </div>
+              <p class="font-semibold text-gray-900">{{ user.name }}</p>
+            </div>
+          </td>
+          <td class="px-6 py-4 text-gray-600">{{ user.email }}</td>
+          <td class="px-6 py-4">
+            <span [class]="user.role === 'ADMIN' ? 'px-3 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full' : 'px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full'">
+              {{ user.role }}
+            </span>
+          </td>
+          <td class="px-6 py-4 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button *ngIf="user.role !== 'ADMIN'" (click)="promoteToAdmin(user.id, user.name)" class="px-4 py-2 bg-purple-500 text-white text-sm rounded-lg hover:bg-purple-600 transition-colors">
+                Promote to Admin
+              </button>
+              <button (click)="deleteUser(user.id, user.name)" class="px-4 py-2 bg-red-500 text-white text-sm rounded-lg hover:bg-red-600 transition-colors">
+                Delete
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div *ngIf="users.length === 0" class="text-center py-12 text-gray-600">
+      No users found.
+    </div>
+  </div>
+</div>
