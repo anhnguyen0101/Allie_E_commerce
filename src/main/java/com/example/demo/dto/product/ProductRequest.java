@@ -27,6 +27,8 @@ public class ProductRequest {
     @NotNull
     private BigDecimal price;
 
+    private String imageUrl;
+
     /** Category id to associate (optional). */
     private Long categoryId;
 

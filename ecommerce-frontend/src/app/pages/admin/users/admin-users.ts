@@ -21,23 +21,22 @@ export class AdminUsers implements OnInit {
   loadUsers(): void {
     this.loading = true;
     this.adminService.getUsers().subscribe({
-      next: (users) => {
-        this.users = users;
+      next: (data) => {
+        this.users = data;
         this.loading = false;
       },
       error: (err) => {
         console.error('Error loading users:', err);
-        alert('Failed to load users');
         this.loading = false;
       }
     });
   }
 
   promoteToAdmin(userId: number, userName: string): void {
-    if (confirm(`Promote ${userName} to ADMIN?`)) {
+    if (confirm(`Promote ${userName} to admin?`)) {
       this.adminService.promoteUser(userId).subscribe({
         next: () => {
-          alert('User promoted to ADMIN successfully!');
+          alert('User promoted to admin successfully');
           this.loadUsers();
         },
         error: (err) => {
@@ -49,10 +48,10 @@ export class AdminUsers implements OnInit {
   }
 
   deleteUser(userId: number, userName: string): void {
-    if (confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) {
+    if (confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) {
       this.adminService.deleteUser(userId).subscribe({
         next: () => {
-          alert('User deleted successfully!');
+          alert('User deleted successfully');
           this.loadUsers();
         },
         error: (err) => {
@@ -61,5 +60,11 @@ export class AdminUsers implements OnInit {
         }
       });
     }
+  }
+
+  getRoleBadgeClass(role: string): string {
+    return role === 'ADMIN' 
+      ? 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800'
+      : 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800';
   }
 }

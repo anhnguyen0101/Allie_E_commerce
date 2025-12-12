@@ -17,6 +17,4 @@ public class OrderItemResponse {
     private String productImage;
     private Integer quantity;
     private BigDecimal price;
-    private BigDecimal priceAtPurchase;  // Add this field
-    private BigDecimal subtotal;  // Add this field
 }

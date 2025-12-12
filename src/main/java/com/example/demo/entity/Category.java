@@ -43,7 +43,7 @@ public class Category {
     private String name;
 
     @Column(length = 500)
-    private String description;
+    private String description; // ✅ MAKE SURE THIS EXISTS
 
     /**
      * Products in this category. Using cascade ALL and orphanRemoval=true so that

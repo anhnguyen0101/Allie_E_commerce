@@ -9,9 +9,13 @@ import { Register } from './pages/register/register';
 import { AuthGuard } from './guards/auth.guard';
 import { AdminGuard } from './guards/admin.guard';
 
-// ✅ Import admin components
+// ✅ Import ALL admin components
 import { AdminLayout } from './pages/admin/layout/admin-layout';
 import { AdminDashboard } from './pages/admin/dashboard/admin-dashboard';
+import { AdminProducts } from './pages/admin/products/admin-products';
+import { AdminProductForm } from './pages/admin/products/admin-product-form';
+import { AdminOrders } from './pages/admin/orders/admin-orders';
+import { AdminUsers } from './pages/admin/users/admin-users';
 
 export const routes: Routes = [
   { path: '', component: Home },
@@ -28,7 +32,12 @@ export const routes: Routes = [
     component: AdminLayout,
     canActivate: [AdminGuard],
     children: [
-      { path: '', component: AdminDashboard }
+      { path: '', component: AdminDashboard },                    // /admin
+      { path: 'products', component: AdminProducts },             // /admin/products
+      { path: 'products/add', component: AdminProductForm },      // /admin/products/add
+      { path: 'products/edit/:id', component: AdminProductForm }, // /admin/products/edit/:id
+      { path: 'orders', component: AdminOrders },                 // /admin/orders
+      { path: 'users', component: AdminUsers }                    // /admin/users
     ]
   },
   

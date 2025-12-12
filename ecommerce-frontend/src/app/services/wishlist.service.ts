@@ -5,7 +5,7 @@ import { tap } from 'rxjs/operators';
 
 @Injectable({ providedIn: 'root' })
 export class WishlistService {
-  private apiUrl = 'http://localhost:8080/api/wishlist';
+  private apiUrl = 'http://localhost:8081/api/wishlist'; // ✅ CHANGE TO 8081
   
   // BehaviorSubject to broadcast wishlist count changes
   private wishlistCountSubject = new BehaviorSubject<number>(0);

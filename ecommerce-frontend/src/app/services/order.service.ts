@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class OrderService {
-  private apiUrl = 'http://localhost:8080/api/orders';
+  private apiUrl = 'http://localhost:8081/api/orders'; // ✅ CHANGE TO 8081
 
   constructor(private http: HttpClient) {}
 

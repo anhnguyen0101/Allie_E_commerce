@@ -36,6 +36,11 @@ public class OrderService {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("User not found"));
         
+        // ❌ OPTIONAL: Block admins from shopping
+        if (user.getRole() == User.Role.ADMIN) {
+            throw new RuntimeException("Admins cannot place orders. Please use a regular user account.");
+        }
+        
         List<CartItem> cartItems = cartItemRepository.findByUserId(userId);
         if (cartItems.isEmpty()) {
             throw new RuntimeException("Cart is empty");

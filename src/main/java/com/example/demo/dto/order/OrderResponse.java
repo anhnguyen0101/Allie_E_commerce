@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 public class OrderResponse {
     private Long id;
     private Long orderId;  // Add this field
+    private String userName; // ✅ ADD THIS
     private BigDecimal totalAmount;
     private BigDecimal total;  // Add this field
     private String status;

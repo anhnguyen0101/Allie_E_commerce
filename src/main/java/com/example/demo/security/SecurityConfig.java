@@ -71,7 +71,19 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/categories/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("ADMIN")
-                // everything else requires authentication
+                // Allow access to uploaded images
+                .requestMatchers("/uploads/**").permitAll()
+                // Admin-only file upload endpoint
+                .requestMatchers("/api/admin/upload/**").hasRole("ADMIN")
+                // ✅ Admins can access these (everyone authenticated)
+                .requestMatchers("/api/cart", "/api/cart/**").authenticated()
+                .requestMatchers("/api/orders", "/api/orders/**").authenticated()
+                .requestMatchers("/api/wishlist", "/api/wishlist/**").authenticated()
+                
+                // ✅ Only admins can access these
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                
+                // ✅ Admins can also do everything users can do
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())

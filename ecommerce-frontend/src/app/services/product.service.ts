@@ -11,7 +11,7 @@ export interface ProductResponse {
 
 @Injectable({ providedIn: 'root' })
 export class ProductService {
-  private apiUrl = 'http://localhost:8080/api/products';
+  private apiUrl = 'http://localhost:8081/api/products'; // ✅ CHANGE TO 8081
 
   constructor(private http: HttpClient) {}
 

@@ -6,7 +6,7 @@ import { AuthService } from './auth.service';
 
 @Injectable({ providedIn: 'root' })
 export class CartService {
-  private apiUrl = 'http://localhost:8080/api/cart';
+  private apiUrl = 'http://localhost:8081/api/cart'; // ✅ CHANGE TO 8081
   
   // BehaviorSubject to broadcast cart count changes
   private cartCountSubject = new BehaviorSubject<number>(0);

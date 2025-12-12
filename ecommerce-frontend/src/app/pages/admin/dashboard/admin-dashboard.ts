@@ -2,6 +2,13 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AdminService } from '../../../services/admin.service';
 
+interface AdminStats {
+  totalProducts: number;
+  totalOrders: number;
+  totalUsers: number;
+  pendingOrders: number;
+}
+
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
@@ -9,7 +16,7 @@ import { AdminService } from '../../../services/admin.service';
   templateUrl: './admin-dashboard.html'
 })
 export class AdminDashboard implements OnInit {
-  stats = {
+  stats: AdminStats = {
     totalProducts: 0,
     totalOrders: 0,
     totalUsers: 0,

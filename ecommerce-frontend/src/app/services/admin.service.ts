@@ -2,14 +2,21 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+interface AdminStats {
+  totalProducts: number;
+  totalOrders: number;
+  totalUsers: number;
+  pendingOrders: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminService {
-  private apiUrl = 'http://localhost:8080/api/admin';
+  private apiUrl = 'http://localhost:8081/api/admin'; // ✅ CHANGE TO 8081
 
   constructor(private http: HttpClient) {}
 
-  getStats(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/stats`);
+  getStats(): Observable<AdminStats> {
+    return this.http.get<AdminStats>(`${this.apiUrl}/stats`);
   }
 
   // PRODUCTS
@@ -62,5 +69,13 @@ export class AdminService {
 
   deleteUser(userId: number): Observable<any> {
     return this.http.delete(`${this.apiUrl}/users/${userId}`);
+  }
+
+  // ✅ ADD IMAGE UPLOAD METHOD
+  uploadImage(file: File): Observable<{ imageUrl: string; filename: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return this.http.post<{ imageUrl: string; filename: string }>(`${this.apiUrl}/upload/image`, formData);
   }
 }
